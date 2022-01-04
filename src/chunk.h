@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "lines.h"
 
 typedef enum {
     OP_RETURN,
@@ -13,7 +14,7 @@ typedef struct {
     int count;
     int capacity;
     uint8_t *code;
-    int* lines;
+    Lines lines;
     ValueArray constants;
 } Chunk;
 
