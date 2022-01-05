@@ -26,6 +26,15 @@ int main(int argc, const char *argv[]) {
     writeChunk(&chunk, OP_DIVIDE, 123);
     writeChunk(&chunk, OP_NEGATE, 123);
 
+    for (int i = 0; i < 300; ++i) {
+        constant = addConstant(&chunk, i);
+        writeChunk(&chunk, OP_CONSTANT, 123);
+        writeChunk(&chunk, constant, 123);
+    }
+    for (int i = 0; i < 300; ++i) {
+        writeChunk(&chunk, OP_ADD, 123);
+    }
+
     writeChunk(&chunk, OP_RETURN, 123);
 
     interpret(&chunk);

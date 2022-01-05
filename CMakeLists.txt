@@ -3,4 +3,4 @@ project(clox C)
 
 set(CMAKE_C_STANDARD 23)
 
-add_executable(clox src/main.c src/chunk.c src/memory.c src/debug.c src/value.c src/vm.c)
+add_executable(clox src/main.c src/chunk.c src/memory.c src/debug.c src/value.c src/vm.c src/stack.c)

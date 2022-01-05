@@ -5,26 +5,12 @@
 
 VM vm;
 
-static void resetStack() {
-    vm.stackTop = vm.stack;
-}
-
 void initVM() {
-    resetStack();
+    initStack(&vm.stack);
 }
 
 void freeVM() {
-
-}
-
-void push(Value value) {
-    *vm.stackTop = value;
-    vm.stackTop++;
-}
-
-Value pop() {
-    vm.stackTop--;
-    return *vm.stackTop;
+    freeStack(&vm.stack);
 }
 
 static InterpretResult run() {
@@ -32,15 +18,15 @@ static InterpretResult run() {
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define BINARY_OP(op)   \
     do {                \
-      double b = pop(); \
-      double a = pop(); \
-      push(a op b);     \
+      double b = pop(&vm.stack); \
+      double a = pop(&vm.stack); \
+      push(&vm.stack, a op b);     \
     } while (false)
 
     for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
-        for (Value *slot = vm.stack; slot < vm.stackTop; ++slot) {
+        for (Value *slot = vm.stack.values; slot < vm.stack.values + vm.stack.count; ++slot) {
             printf("[ ");
             printValue(*slot);
             printf(" ]");
@@ -52,7 +38,7 @@ static InterpretResult run() {
         switch (instruction = READ_BYTE()) {
             case OP_CONSTANT: {
                 Value constant = READ_CONSTANT();
-                push(constant);
+                push(&vm.stack, constant);
                 break;
             }
             case OP_ADD:
@@ -68,10 +54,10 @@ static InterpretResult run() {
                 BINARY_OP(/);
                 break;
             case OP_NEGATE:
-                push(-pop());
+                push(&vm.stack, -pop(&vm.stack));
                 break;
             case OP_RETURN:
-                printValue(pop());
+                printValue(pop(&vm.stack));
                 printf("\n");
                 return INTERPRET_OK;
         }
