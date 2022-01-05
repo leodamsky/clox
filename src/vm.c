@@ -27,6 +27,14 @@ Value pop() {
     return *vm.stackTop;
 }
 
+Value peek() {
+    return *(vm.stackTop - 1);
+}
+
+void setLast(Value value) {
+    *(vm.stackTop - 1) = value;
+}
+
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
@@ -68,7 +76,7 @@ static InterpretResult run() {
                 BINARY_OP(/);
                 break;
             case OP_NEGATE:
-                push(-pop());
+                setLast(-peek());
                 break;
             case OP_RETURN:
                 printValue(pop());
