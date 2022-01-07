@@ -19,9 +19,13 @@ static Obj *allocateObject(size_t size, ObjType type) {
 }
 
 static ObjString *allocateString(char *chars, int length) {
-    ObjString *string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+    // sizeof(ObjString) behaves like "chars" (flexible array member) is empty
+    // so, we need to compute the whole size
+    int totalStructSize = sizeof(ObjString) * length * sizeof(char);
+    ObjString *string = (ObjString *) allocateObject(totalStructSize, OBJ_STRING);
     string->length = length;
-    string->chars = chars;
+    memcpy(string->chars, chars, length);
+    FREE_ARRAY(char, chars, length);
     return string;
 }
 

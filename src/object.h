@@ -24,7 +24,7 @@ struct Obj {
 struct ObjString {
     struct Obj obj;
     int length;
-    char *chars;
+    char chars[];
 };
 
 struct ObjString *takeString(char *chars, int length);
