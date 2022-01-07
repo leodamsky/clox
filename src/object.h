@@ -23,13 +23,15 @@ struct Obj {
 
 struct ObjString {
     struct Obj obj;
+    bool constant;
+    // never includes null-terminator
     int length;
     char *chars;
 };
 
 struct ObjString *takeString(char *chars, int length);
 
-struct ObjString *copyString(const char *chars, int length);
+struct ObjString *constantString(const char *chars, int length);
 
 void printObject(Value value);
 

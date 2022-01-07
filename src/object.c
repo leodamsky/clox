@@ -26,19 +26,25 @@ static ObjString *allocateString(char *chars, int length) {
 }
 
 ObjString *takeString(char *chars, int length) {
-    return allocateString(chars, length);
+    ObjString *string = allocateString(chars, length);
+    string->constant = false;
+    return string;
 }
 
-ObjString *copyString(const char *chars, int length) {
-    char *heapChars = ALLOCATE(char, length + 1);
-    memcpy(heapChars, chars, length);
-    heapChars[length] = '\0';
-    return allocateString(heapChars, length);
+ObjString *constantString(const char *chars, int length) {
+    // we don't take ownership here
+    // we set a flag that it's a constant
+    // based on which, we will decide whether to free or not
+    ObjString *string = allocateString(chars, length);
+    string->constant = true;
+    return string;
 }
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
-        case OBJ_STRING:
-            printf("%s", AS_CSTRING(value));
+        case OBJ_STRING: {
+            ObjString *string = AS_STRING(value);
+            printf("%.*s", string->length, string->chars);
+        }
     }
 }
