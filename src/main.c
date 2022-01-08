@@ -58,17 +58,14 @@ static void runFile(const char *path) {
 }
 
 int main(int argc, const char *argv[]) {
-    initVM();
+    Table table;
+    initTable(&table);
 
-    if (argc == 1) {
-        repl();
-    } else if (argc == 2) {
-        runFile(argv[1]);
-    } else {
-        fprintf(stderr, "Usage: clox [path]\n");
-        exit(64);
-    }
-
-    freeVM();
-    return 0;
+    bool b = tableSet(&table, NUMBER_VAL(1), BOOL_VAL(true));
+    printf("Set: %d\n", b);
+    Value value;
+    tableGet(&table, NUMBER_VAL(1), &value);
+    printf("Get: ");
+    printValue(value);
+    printf("\n");
 }

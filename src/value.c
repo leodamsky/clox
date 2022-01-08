@@ -4,6 +4,7 @@
 #include "object.h"
 #include "memory.h"
 #include "value.h"
+#include "table.h"
 
 bool valuesEqual(Value a, Value b) {
     if (a.type != b.type) {
@@ -57,5 +58,19 @@ void printValue(Value value) {
         case VAL_OBJ:
             printObject(value);
             break;
+    }
+}
+
+uint32_t hashValue(Value value) {
+    switch (value.type) {
+        case VAL_BOOL:
+            return value.as.boolean ? 1 : 0;
+        case VAL_NIL:
+            return 3792957803;
+        case VAL_NUMBER:
+            return (uint32_t) value.as.number;
+        case VAL_OBJ:
+            // we have only strings at this point
+            return AS_STRING(value)->hash;
     }
 }
