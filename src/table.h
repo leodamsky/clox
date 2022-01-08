@@ -4,7 +4,15 @@
 #include "common.h"
 #include "value.h"
 
+typedef enum {
+    ENTRY_ABSENT,
+    ENTRY_TOMBSTONE,
+    ENTRY_VALUE,
+} EntryType;
+
 typedef struct {
+    EntryType type;
+    // key and value are not "nil" when the type isn't VALUE
     Value key;
     Value value;
 } Entry;

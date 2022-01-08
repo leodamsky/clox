@@ -25,12 +25,10 @@ static Entry *findEntry(Entry *entries, int capacity, Value key) {
 
     for (;;) {
         Entry *entry = &entries[index];
-        if (IS_NIL(entry->key)) {
-            if (IS_NIL(entry->value)) {
-                return tombstone != NULL ? tombstone : entry;
-            } else {
-                if (tombstone == NULL) tombstone = entry;
-            }
+        if (entry->type == ENTRY_TOMBSTONE) {
+            if (tombstone == NULL) tombstone = entry;
+        } else if (entry->type == ENTRY_ABSENT) {
+            return tombstone != NULL ? tombstone : entry;
         } else if (valuesEqual(entry->key, key)) {
             return entry;
         }
@@ -42,6 +40,7 @@ static Entry *findEntry(Entry *entries, int capacity, Value key) {
 static void adjustCapacity(Table *table, int capacity) {
     Entry *entries = ALLOCATE(Entry, capacity);
     for (int i = 0; i < capacity; ++i) {
+        entries[i].type = ENTRY_ABSENT;
         entries[i].key = NIL_VAL;
         entries[i].value = NIL_VAL;
     }
@@ -49,9 +48,10 @@ static void adjustCapacity(Table *table, int capacity) {
     table->count = 0;
     for (int i = 0; i < table->capacity; ++i) {
         Entry *entry = &table->entries[i];
-        if (IS_NIL(entry->key)) continue;
+        if (entry->type != ENTRY_VALUE) continue;
 
         Entry *dest = findEntry(entries, capacity, entry->key);
+        dest->type = entry->type;
         dest->key = entry->key;
         dest->value = entry->value;
         table->count++;
@@ -66,7 +66,7 @@ bool tableGet(Table *table, Value key, Value *value) {
     if (table->count == 0) return false;
 
     Entry *entry = findEntry(table->entries, table->capacity, key);
-    if (IS_NIL(entry->key)) return false;
+    if (entry->type != ENTRY_VALUE) return false;
 
     *value = entry->value;
     return true;
@@ -79,9 +79,10 @@ bool tableSet(Table *table, Value key, Value value) {
     }
 
     Entry *entry = findEntry(table->entries, table->capacity, key);
-    bool isNewKey = IS_NIL(entry->key);
-    if (isNewKey && IS_NIL(entry->value)) table->count++;
+    bool isNewKey = entry->type != ENTRY_VALUE;
+    if (isNewKey && entry->type == ENTRY_ABSENT) table->count++;
 
+    entry->type = ENTRY_VALUE;
     entry->key = key;
     entry->value = value;
     return isNewKey;
@@ -91,17 +92,18 @@ bool tableDelete(Table *table, Value key) {
     if (table->count == 0) return false;
 
     Entry *entry = findEntry(table->entries, table->capacity, key);
-    if (IS_NIL(entry->key)) return false;
+    if (entry->type != ENTRY_VALUE) return false;
 
+    entry->type = ENTRY_TOMBSTONE;
     entry->key = NIL_VAL;
-    entry->value = BOOL_VAL(true);
+    entry->value = NIL_VAL;
     return true;
 }
 
 void tableAddAll(Table *from, Table *to) {
     for (int i = 0; i < from->capacity; ++i) {
         Entry *entry = &from->entries[i];
-        if (!IS_NIL(entry->key)) {
+        if (entry->type == ENTRY_VALUE) {
             tableSet(to, entry->key, entry->value);
         }
     }
@@ -113,9 +115,9 @@ ObjString *tableFindString(Table *table, const char *chars, int length, uint32_t
     uint32_t index = hash % table->capacity;
     for (;;) {
         Entry *entry = &table->entries[index];
-        if (IS_NIL(entry->key)) {
-            // Stop if we found empty non-tombstone entry.
-            if (IS_NIL(entry->value)) return NULL;
+        // Stop if we found empty non-tombstone entry.
+        if (entry->type == ENTRY_ABSENT) {
+            return NULL;
         }
 
         if (!IS_STRING(entry->key)) continue;

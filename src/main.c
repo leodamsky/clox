@@ -61,10 +61,17 @@ int main(int argc, const char *argv[]) {
     Table table;
     initTable(&table);
 
-    bool b = tableSet(&table, NUMBER_VAL(1), BOOL_VAL(true));
+    bool b = tableSet(&table, NIL_VAL, BOOL_VAL(true));
     printf("Set: %d\n", b);
     Value value;
-    tableGet(&table, NUMBER_VAL(1), &value);
+    tableGet(&table, NIL_VAL, &value);
+    printf("Get: ");
+    printValue(value);
+    printf("\n");
+    tableDelete(&table, NIL_VAL);
+    b = tableSet(&table, NIL_VAL, NUMBER_VAL(123));
+    printf("Set: %d\n", b);
+    tableGet(&table, NIL_VAL, &value);
     printf("Get: ");
     printValue(value);
     printf("\n");
