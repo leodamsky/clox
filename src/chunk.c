@@ -10,12 +10,14 @@ void initChunk(Chunk *chunk) {
     chunk->code = NULL;
     chunk->lines = NULL;
     initValueArray(&chunk->constants);
+    initTable(&chunk->constantIndexes);
 }
 
 void freeChunk(Chunk *chunk) {
     FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
     FREE_ARRAY(uint8_t, chunk->lines, chunk->capacity);
     freeValueArray(&chunk->constants);
+    freeTable(&chunk->constantIndexes);
     initChunk(chunk);
 }
 
@@ -34,5 +36,9 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
 
 int addConstant(Chunk *chunk, Value value) {
     writeValueArray(&chunk->constants, value);
-    return chunk->constants.count - 1;
+    int index = chunk->constants.count - 1;
+    if (IS_STRING(value)) {
+        tableSet(&chunk->constantIndexes, AS_STRING(value), NUMBER_VAL(index));
+    }
+    return index;
 }

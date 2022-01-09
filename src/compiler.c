@@ -320,7 +320,12 @@ static void parsePrecedence(Precedence precedence) {
 }
 
 static uint8_t identifierConstant(Token *name) {
-    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+    Value identifier = OBJ_VAL(copyString(name->start, name->length));
+    Value cachedIndex;
+    if (tableGet(&currentChunk()->constantIndexes, AS_STRING(identifier), &cachedIndex)) {
+        return (uint8_t) AS_NUMBER(cachedIndex);
+    }
+    return makeConstant(identifier);
 }
 
 static uint8_t parseVariable(const char *errorMessage) {

@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "table.h"
 
 typedef enum {
     OP_CONSTANT,
@@ -32,6 +33,9 @@ typedef struct {
     uint8_t *code;
     int *lines;
     ValueArray constants;
+    // reverse lookup for string constants
+    // (because Table is not generic)
+    Table constantIndexes;
 } Chunk;
 
 void initChunk(Chunk *chunk);
