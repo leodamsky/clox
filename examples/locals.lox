@@ -1,0 +1,9 @@
+var breakfast;
+{
+    var dinner;
+    {
+        dinner = "initialized";
+    }
+    breakfast = "hello" + dinner;
+}
+print breakfast;
