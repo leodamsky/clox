@@ -1,0 +1,10 @@
+var even = false;
+
+for (var i = 0; i < 5; i = i + 1) {
+    even = !even;
+    if (even) {
+        continue;
+    }
+    print i;
+    print "^ ODD";
+}

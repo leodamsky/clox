@@ -51,6 +51,7 @@ typedef struct {
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
+    int nearestLoop;
 } Compiler;
 
 Parser parser;
@@ -175,6 +176,7 @@ static void patchJump(int offset) {
 static void initCompiler(Compiler *compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->nearestLoop = -1;
     current = compiler;
 }
 
@@ -520,6 +522,16 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
+static int beginLoop(int loopStart) {
+    int enclosingLoop = current->nearestLoop;
+    current->nearestLoop = loopStart;
+    return enclosingLoop;
+}
+
+static void endLoop(int enclosingLoop) {
+    current->nearestLoop = enclosingLoop;
+}
+
 static void forStatement() {
     beginScope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
@@ -554,7 +566,10 @@ static void forStatement() {
         patchJump(bodyJump);
     }
 
+    int enclosingLoop = beginLoop(loopStart);
     statement();
+    endLoop(enclosingLoop);
+
     emitLoop(loopStart);
 
     if (exitJump != -1) {
@@ -598,7 +613,11 @@ static void whileStatement() {
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP);
+
+    int enclosingLoop = beginLoop(loopStart);
     statement();
+    endLoop(enclosingLoop);
+
     emitLoop(loopStart);
 
     patchJump(exitJump);
@@ -637,6 +656,19 @@ static void block() {
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+static void continueStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+
+    int nearestLoop = current->nearestLoop;
+
+    if (nearestLoop == -1) {
+        error("'continue' outside loop.");
+        return;
+    }
+
+    emitLoop(nearestLoop);
+}
+
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
@@ -650,6 +682,8 @@ static void statement() {
         beginScope();
         block();
         endScope();
+    } else if (match(TOKEN_CONTINUE)) {
+        continueStatement();
     } else {
         expressionStatement();
     }
