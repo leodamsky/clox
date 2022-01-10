@@ -565,6 +565,62 @@ static void forStatement() {
     endScope();
 }
 
+static void switchStatement() {
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after switch condition.");
+
+    int jump = 0;
+    int limit = 256;
+    int escapeJumps[limit];
+
+    int prevCase = -1;
+    while (match(TOKEN_CASE)) {
+        if (prevCase != -1) {
+            patchJump(prevCase);
+        }
+        expression();
+        prevCase = emitJump(OP_SWITCH_JUMP);
+        consume(TOKEN_COLON, "Expect ':' after case expression.");
+        while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) && !check(TOKEN_RIGHT_PAREN)) {
+            if (check(TOKEN_EOF)) {
+                error("Unterminated 'switch' statement.");
+                return;
+            }
+            statement();
+        }
+        if (jump == limit) {
+            error("Too many 'case' statements.");
+            return;
+        }
+        escapeJumps[jump++] = emitJump(OP_JUMP);
+    }
+
+    if (prevCase != -1) {
+        patchJump(prevCase);
+    }
+
+    if (match(TOKEN_DEFAULT)) {
+        consume(TOKEN_COLON, "Expect ':' after 'default'.");
+        while (!check(TOKEN_RIGHT_BRACE)) {
+            if (check(TOKEN_EOF)) {
+                error("Unterminated 'switch' statement.");
+                return;
+            }
+            statement();
+        }
+    }
+
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch body.");
+
+    for (int i = 0; i < jump; ++i) {
+        patchJump(escapeJumps[i]);
+    }
+    // Remove values from switch's expression.
+    emitByte(OP_POP);
+}
+
 static void ifStatement() {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     expression();
@@ -642,6 +698,8 @@ static void statement() {
         printStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
+    } else if (match(TOKEN_SWITCH)) {
+        switchStatement();
     } else if (match(TOKEN_IF)) {
         ifStatement();
     } else if (match(TOKEN_WHILE)) {

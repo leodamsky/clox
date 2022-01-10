@@ -1,0 +1,14 @@
+var name = "Maria";
+
+switch (name) {
+    case "Bob" + "Marley":
+        print "correct!";
+    case "Maria":
+        print "correct!";
+    case 1:
+        print "? found number";
+    case true:
+        print "? found true";
+    default:
+        print "? none match";
+}
