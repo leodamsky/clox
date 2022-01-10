@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "table.h"
 
 typedef enum {
     OP_CONSTANT,
@@ -34,6 +35,7 @@ typedef struct {
     uint8_t *code;
     int *lines;
     ValueArray constants;
+    Table immutableGlobals;
 } Chunk;
 
 void initChunk(Chunk *chunk);
@@ -43,5 +45,9 @@ void freeChunk(Chunk *chunk);
 void writeChunk(Chunk *chunk, uint8_t byte, int line);
 
 int addConstant(Chunk *chunk, Value value);
+
+void setImmutable(Chunk *chunk, int global);
+
+bool isImmutable(Chunk *chunk, int global);
 
 #endif

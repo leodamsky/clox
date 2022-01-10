@@ -45,6 +45,7 @@ typedef struct {
 typedef struct {
     Token name;
     int depth;
+    bool immutable;
 } Local;
 
 typedef struct {
@@ -256,17 +257,21 @@ static int resolveLocal(Compiler *compiler, Token *name);
 
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
+    bool immutable;
     int arg = resolveLocal(current, &name);
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+        immutable = current->locals[arg].immutable;
     } else {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
+        immutable = isImmutable(currentChunk(), arg);
     }
 
     if (canAssign && match(TOKEN_EQUAL)) {
+        if (immutable) error("Immutable variable has already been assigned.");
         expression();
         emitBytes(setOp, (uint8_t) arg);
     } else {
@@ -386,7 +391,7 @@ static int resolveLocal(Compiler *compiler, Token *name) {
     return -1;
 }
 
-static void addLocal(Token name) {
+static void addLocal(Token name, bool immutable) {
     if (current->localCount == UINT8_COUNT) {
         error("Too many local variables in function.");
         return;
@@ -395,9 +400,10 @@ static void addLocal(Token name) {
     Local *local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;
+    local->immutable = immutable;
 }
 
-static void declareVariable() {
+static void declareVariable(bool immutable) {
     if (current->scopeDepth == 0) return;
 
     Token *name = &parser.previous;
@@ -412,16 +418,24 @@ static void declareVariable() {
         }
     }
 
-    addLocal(*name);
+    addLocal(*name, immutable);
 }
 
-static uint8_t parseVariable(const char *errorMessage) {
+static uint8_t parseVariable(const char *errorMessage, bool immutable) {
     consume(TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable();
+    declareVariable(immutable);
     if (current->scopeDepth > 0) return 0;
 
-    return identifierConstant(&parser.previous);
+    uint8_t constant = identifierConstant(&parser.previous);
+    if (immutable) {
+        if (isImmutable(currentChunk(), constant)) {
+            error("Immutable global identifier has already been defined.");
+        } else {
+            setImmutable(currentChunk(), constant);
+        }
+    }
+    return constant;
 }
 
 static void markInitialized() {
@@ -446,12 +460,25 @@ static void expression() {
 }
 
 static void varDeclaration() {
-    uint8_t global = parseVariable("Expect variable name.");
+    uint8_t global = parseVariable("Expect variable name.", false);
 
     if (match(TOKEN_EQUAL)) {
         expression();
     } else {
         emitByte(OP_NIL);
+    }
+    consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+    defineVariable(global);
+}
+
+static void letDeclaration() {
+    uint8_t global = parseVariable("Expect variable name.", true);
+
+    if (match(TOKEN_EQUAL)) {
+        expression();
+    } else {
+        error("Immutable without initializer is not allowed.");
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
@@ -517,6 +544,8 @@ static void statement() {
 static void declaration() {
     if (match(TOKEN_VAR)) {
         varDeclaration();
+    } else if (match(TOKEN_LET)) {
+        letDeclaration();
     } else {
         statement();
     }

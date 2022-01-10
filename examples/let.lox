@@ -1,0 +1,18 @@
+let a = 1;
+
+// not allowed to re-define constants (possible for vars)
+// let a = 2;
+
+// not allowed for 'let'
+// a = 3;
+
+print a;
+
+{
+    // not allowed like in JS
+    // let a;
+    let a = "a";
+    // not allowed for 'let'
+    // a = "c";
+    print a;
+}

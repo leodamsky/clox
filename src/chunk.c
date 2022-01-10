@@ -10,6 +10,7 @@ void initChunk(Chunk *chunk) {
     chunk->code = NULL;
     chunk->lines = NULL;
     initValueArray(&chunk->constants);
+    initTable(&chunk->immutableGlobals);
 }
 
 void freeChunk(Chunk *chunk) {
@@ -17,6 +18,7 @@ void freeChunk(Chunk *chunk) {
     FREE_ARRAY(uint8_t, chunk->lines, chunk->capacity);
     freeValueArray(&chunk->constants);
     initChunk(chunk);
+    freeTable(&chunk->immutableGlobals);
 }
 
 void writeChunk(Chunk *chunk, uint8_t byte, int line) {
@@ -35,4 +37,19 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
 int addConstant(Chunk *chunk, Value value) {
     writeValueArray(&chunk->constants, value);
     return chunk->constants.count - 1;
+}
+
+void setImmutable(Chunk *chunk, int global) {
+    ObjString *name = AS_STRING(chunk->constants.values[global]);
+    tableSet(&chunk->immutableGlobals, name, BOOL_VAL(true));
+}
+
+bool isImmutable(Chunk *chunk, int global) {
+    ObjString *name = AS_STRING(chunk->constants.values[global]);
+    Value value;
+    if (tableGet(&chunk->immutableGlobals, name, &value)) {
+        return AS_BOOL(value);
+    } else {
+        return false;
+    }
 }
