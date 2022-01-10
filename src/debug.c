@@ -30,6 +30,15 @@ static int byteInstruction(const char *name, Chunk *chunk, int offset) {
     return offset + 2;
 }
 
+static int intInstruction(const char *name, Chunk *chunk, int offset) {
+    uint8_t slot = chunk->code[++offset] << 24;
+    slot |= (chunk->code[++offset] << 16);
+    slot |= (chunk->code[++offset] << 8);
+    slot |= chunk->code[++offset];
+    printf("%-16s %4d\n", name, slot);
+    return offset + 5;
+}
+
 int disassembleInstruction(Chunk *chunk, int offset) {
     printf("%04d ", offset);
     if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -43,13 +52,17 @@ int disassembleInstruction(Chunk *chunk, int offset) {
         case OP_CONSTANT:
             return constantInstruction("OP_CONSTANT", chunk, offset);
         case OP_NIL:
-            return constantInstruction("OP_NIL", chunk, offset);
+            return simpleInstruction("OP_NIL", offset);
         case OP_TRUE:
             return constantInstruction("OP_TRUE", chunk, offset);
         case OP_FALSE:
             return constantInstruction("OP_FALSE", chunk, offset);
         case OP_POP:
             return simpleInstruction("OP_POP", offset);
+        case OP_GET_LOCAL_LONG:
+            return intInstruction("OP_GET_LOCAL_LONG", chunk, offset);
+        case OP_SET_LOCAL_LONG:
+            return intInstruction("OP_SET_LOCAL_LONG", chunk, offset);
         case OP_GET_LOCAL:
             return byteInstruction("OP_GET_LOCAL", chunk, offset);
         case OP_SET_LOCAL:

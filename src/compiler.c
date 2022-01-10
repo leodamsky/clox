@@ -10,6 +10,7 @@
 #ifdef DEBUG_PRINT_CODE
 
 #include "debug.h"
+#include "local.h"
 
 #endif
 
@@ -43,13 +44,7 @@ typedef struct {
 } ParseRule;
 
 typedef struct {
-    Token name;
-    int depth;
-} Local;
-
-typedef struct {
-    Local locals[UINT8_COUNT];
-    int localCount;
+    LocalArray locals;
     int scopeDepth;
 } Compiler;
 
@@ -143,9 +138,9 @@ static void emitConstant(Value value) {
 }
 
 static void initCompiler(Compiler *compiler) {
-    compiler->localCount = 0;
     compiler->scopeDepth = 0;
     current = compiler;
+    initLocalArray(&compiler->locals);
 }
 
 static void endCompiler() {
@@ -155,6 +150,7 @@ static void endCompiler() {
         disassembleChunk(currentChunk(), "code");
     }
 #endif
+    freeLocalArray(&current->locals);
 }
 
 static void beginScope() {
@@ -164,9 +160,9 @@ static void beginScope() {
 static void endScope() {
     current->scopeDepth--;
 
-    while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) {
+    while (current->locals.count > 0 && current->locals.values[current->locals.count - 1].depth > current->scopeDepth) {
         emitByte(OP_POP);
-        current->localCount--;
+        current->locals.count--;
     }
 }
 
@@ -258,8 +254,13 @@ static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
     if (arg != -1) {
-        getOp = OP_GET_LOCAL;
-        setOp = OP_SET_LOCAL;
+        if (arg > UINT8_MAX) {
+            getOp = OP_GET_LOCAL_LONG;
+            setOp = OP_SET_LOCAL_LONG;
+        } else {
+            getOp = OP_GET_LOCAL;
+            setOp = OP_SET_LOCAL;
+        }
     } else {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
@@ -268,7 +269,15 @@ static void namedVariable(Token name, bool canAssign) {
 
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
-        emitBytes(setOp, (uint8_t) arg);
+        if (arg > UINT8_MAX) {
+            emitByte(setOp);
+            emitByte((arg >> 24) & 0xff);
+            emitByte((arg >> 16) & 0xff);
+            emitByte((arg >> 8) & 0xff);
+            emitByte(arg & 0xff);
+        } else {
+            emitBytes(setOp, (uint8_t) arg);
+        }
     } else {
         emitBytes(getOp, (uint8_t) arg);
     }
@@ -373,8 +382,8 @@ static bool identifiersEqual(Token *a, Token *b) {
 }
 
 static int resolveLocal(Compiler *compiler, Token *name) {
-    for (int i = compiler->localCount - 1; i >= 0; i--) {
-        Local *local = &compiler->locals[i];
+    for (int i = compiler->locals.count - 1; i >= 0; i--) {
+        Local *local = &compiler->locals.values[i];
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {
                 error("Can't read local variable in its own initializer.");
@@ -387,22 +396,18 @@ static int resolveLocal(Compiler *compiler, Token *name) {
 }
 
 static void addLocal(Token name) {
-    if (current->localCount == UINT8_COUNT) {
-        error("Too many local variables in function.");
-        return;
-    }
-
-    Local *local = &current->locals[current->localCount++];
-    local->name = name;
-    local->depth = -1;
+    Local local;
+    local.name = name;
+    local.depth = -1;
+    writeLocalArray(&current->locals, local);
 }
 
 static void declareVariable() {
     if (current->scopeDepth == 0) return;
 
     Token *name = &parser.previous;
-    for (int i = current->localCount - 1; i > 0; ++i) {
-        Local *local = &current->locals[i];
+    for (int i = current->locals.count - 1; i > 0; ++i) {
+        Local *local = &current->locals.values[i];
         if (local->depth != -1 && local->depth < current->scopeDepth) {
             break;
         }
@@ -425,7 +430,7 @@ static uint8_t parseVariable(const char *errorMessage) {
 }
 
 static void markInitialized() {
-    current->locals[current->localCount - 1].depth = current->scopeDepth;
+    current->locals.values[current->locals.count - 1].depth = current->scopeDepth;
 }
 
 static void defineVariable(uint8_t global) {

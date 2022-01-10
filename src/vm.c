@@ -13,7 +13,7 @@
 VM vm;
 
 static void resetStack() {
-    vm.stackTop = vm.stack;
+    vm.stack.count = 0;
 }
 
 static void runtimeError(const char *format, ...) {
@@ -44,17 +44,15 @@ void freeVM() {
 }
 
 void push(Value value) {
-    *vm.stackTop = value;
-    vm.stackTop++;
+    writeValueArray(&vm.stack, value);
 }
 
 Value pop() {
-    vm.stackTop--;
-    return *vm.stackTop;
+    return vm.stack.values[--vm.stack.count];
 }
 
 static Value peek(int distance) {
-    return vm.stackTop[-1 - distance];
+    return vm.stack.values[vm.stack.count - 1 - distance];
 }
 
 static bool isFalsey(Value value) {
@@ -76,6 +74,7 @@ static void concatenate() {
 
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
+#define READ_INT() ((int) (READ_BYTE() << 24) | (READ_BYTE() << 16) | (READ_BYTE() << 8) | READ_BYTE())
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op) \
@@ -92,7 +91,7 @@ static InterpretResult run() {
     for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
-        for (Value *slot = vm.stack; slot < vm.stackTop; ++slot) {
+        for (Value *slot = vm.stack.values; slot < vm.stack.values + vm.stack.count; ++slot) {
             printf("[ ");
             printValue(*slot);
             printf(" ]");
@@ -119,14 +118,24 @@ static InterpretResult run() {
             case OP_POP:
                 pop();
                 break;
+            case OP_GET_LOCAL_LONG: {
+                int slot = READ_INT();
+                push(vm.stack.values[slot]);
+                break;
+            }
+            case OP_SET_LOCAL_LONG: {
+                int slot = READ_INT();
+                vm.stack.values[slot] = peek(0);
+                break;
+            }
             case OP_GET_LOCAL: {
                 uint8_t slot = READ_BYTE();
-                push(vm.stack[slot]);
+                push(vm.stack.values[slot]);
                 break;
             }
             case OP_SET_LOCAL: {
                 uint8_t slot = READ_BYTE();
-                vm.stack[slot] = peek(0);
+                vm.stack.values[slot] = peek(0);
                 break;
             }
             case OP_GET_GLOBAL: {
@@ -209,6 +218,7 @@ static InterpretResult run() {
     }
 
 #undef READ_BYTE
+#undef READ_INT
 #undef READ_CONSTANT
 #undef READ_STRING
 #undef BINARY_OP
