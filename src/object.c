@@ -37,6 +37,14 @@ static uint32_t hashString(const char *key, int length) {
     return hash;
 }
 
+ObjFunction *newFunction() {
+    ObjFunction *function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+    return function;
+}
+
 ObjString *takeString(char *chars, int length) {
     uint32_t hash = hashString(chars, length);
     ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
@@ -60,9 +68,37 @@ ObjString *copyString(const char *chars, int length) {
     return allocateString(heapChars, length, hash);
 }
 
+static void printFunction(ObjFunction *function) {
+    if (function->name == NULL) {
+        printf("<script>");
+        return;
+    }
+    printf("<fn %s>", function->name->chars);
+}
+
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_FUNCTION:
+            printFunction(AS_FUNCTION(value));
+            break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
+    }
+}
+
+void freeObject(Obj *object) {
+    switch (object->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction *function = (ObjFunction *) object;
+            freeChunk(&function->chunk);
+            FREE(ObjFunction, object);
+            break;
+        }
+        case OBJ_STRING: {
+            ObjString *string = (ObjString *) object;
+            FREE_ARRAY(char, string->chars, string->length + 1);
+            FREE(ObjString, object);
+            break;
+        }
     }
 }
