@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -12,8 +13,26 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value* args) {
-    return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static void runtimeError(const char *format, ...);
+
+static bool clockNative(int argCount, Value *args, Value *result) {
+    *result = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+    return true;
+}
+
+static bool sqrtNative(int argCount, Value *args, Value *result) {
+    if (argCount != 1) {
+        runtimeError("Wrong number of arguments, expected %d, got %d.", 1, argCount);
+        return false;
+    }
+    Value argument = *args;
+    if (IS_NUMBER(argument)) {
+        *result = NUMBER_VAL(sqrt(AS_NUMBER(argument)));
+        return true;
+    } else {
+        runtimeError("Expect a number argument.");
+        return false;
+    }
 }
 
 static void resetStack() {
@@ -29,10 +48,10 @@ static void runtimeError(const char *format, ...) {
     fputs("\n", stderr);
 
     for (int i = vm.frameCount - 1; i >= 0; i--) {
-        CallFrame* frame = &vm.frames[i];
-        ObjFunction* function = frame->function;
+        CallFrame *frame = &vm.frames[i];
+        ObjFunction *function = frame->function;
         size_t instruction = frame->ip - function->chunk.code - 1;
-        fprintf(stderr, "[line %d] in ",function->chunk.lines[instruction]);
+        fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
         if (function->name == NULL) {
             fprintf(stderr, "script\n");
         } else {
@@ -43,9 +62,9 @@ static void runtimeError(const char *format, ...) {
     resetStack();
 }
 
-static void defineNative(const char* name, NativeFn function) {
-    push(OBJ_VAL(copyString(name, (int)strlen(name))));
-    push(OBJ_VAL(newNative(function, 0)));
+static void defineNative(const char *name, NativeFn function, int arity) {
+    push(OBJ_VAL(copyString(name, (int) strlen(name))));
+    push(OBJ_VAL(newNative(function, arity)));
     tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
     pop();
     pop();
@@ -58,7 +77,8 @@ void initVM() {
     initTable(&vm.globals);
     initTable(&vm.strings);
 
-    defineNative("clock", clockNative);
+    defineNative("clock", clockNative, 0);
+    defineNative("sqrt", sqrtNative, 1);
 }
 
 void freeVM() {
@@ -127,10 +147,14 @@ static bool callValue(Value callee, int argCount) {
                     runtimeError("Expect %d arguments but got %d.", native->arity, argCount);
                     return false;
                 }
-                Value result = native->function(argCount, vm.stackTop - argCount);
-                vm.stackTop -= argCount + 1;
-                push(result);
-                return true;
+                Value result;
+                if (native->function(argCount, vm.stackTop - argCount, &result)) {
+                    vm.stackTop -= argCount + 1;
+                    push(result);
+                    return true;
+                } else {
+                    return false;
+                }
             }
             default:
                 // non-callable object type
