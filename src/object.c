@@ -45,6 +45,12 @@ ObjFunction *newFunction() {
     return function;
 }
 
+ObjNative *newNative(NativeFn function) {
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
+}
+
 ObjString *takeString(char *chars, int length) {
     uint32_t hash = hashString(chars, length);
     ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
@@ -81,6 +87,9 @@ void printObject(Value value) {
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value));
             break;
+        case OBJ_NATIVE:
+            printf("<native fn>");
+            break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
     }
@@ -94,6 +103,9 @@ void freeObject(Obj *object) {
             FREE(ObjFunction, object);
             break;
         }
+        case OBJ_NATIVE:
+            FREE(ObjNative, object);
+            break;
         case OBJ_STRING: {
             ObjString *string = (ObjString *) object;
             FREE_ARRAY(char, string->chars, string->length + 1);
