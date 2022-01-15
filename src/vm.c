@@ -31,7 +31,7 @@ static void runtimeError(const char *format, ...) {
 
     for (int i = vm.frameCount - 1; i >= 0; i--) {
         CallFrame *frame = &vm.frames[i];
-        ObjFunction *function = frame->closure->function;
+        ObjFunction *function = frame->function;
         size_t instruction = frame->ip - function->chunk.code - 1;
         fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
         if (function->name == NULL) {
@@ -99,9 +99,9 @@ static void concatenate() {
     push(OBJ_VAL(result));
 }
 
-static bool call(ObjClosure *closure, int argCount) {
-    if (argCount != closure->function->arity) {
-        runtimeError("Expect %d arguments but got %d.", closure->function->arity, argCount);
+static bool call(ObjClosure *closure, ObjFunction *function, int argCount) {
+    if (argCount != function->arity) {
+        runtimeError("Expect %d arguments but got %d.", function->arity, argCount);
         return false;
     }
 
@@ -112,7 +112,8 @@ static bool call(ObjClosure *closure, int argCount) {
 
     CallFrame *frame = &vm.frames[vm.frameCount++];
     frame->closure = closure;
-    frame->ip = closure->function->chunk.code;
+    frame->function = function;
+    frame->ip = function->chunk.code;
     frame->slots = vm.stackTop - argCount - 1;
     return true;
 }
@@ -120,8 +121,12 @@ static bool call(ObjClosure *closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
-            case OBJ_CLOSURE:
-                return call(AS_CLOSURE(callee), argCount);
+            case OBJ_CLOSURE: {
+                ObjClosure *closure = AS_CLOSURE(callee);
+                return call(closure, closure->function, argCount);
+            }
+            case OBJ_FUNCTION:
+                return call(NULL, AS_FUNCTION(callee), argCount);
             case OBJ_NATIVE: {
                 NativeFn native = AS_NATIVE(callee);
                 Value result = native(argCount, vm.stackTop - argCount);
@@ -176,7 +181,7 @@ static InterpretResult run() {
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
-#define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_BYTE()])
+#define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op) \
     do { \
@@ -198,8 +203,7 @@ static InterpretResult run() {
             printf(" ]");
         }
         printf("\n");
-        disassembleInstruction(&frame->closure->function->chunk,
-                               (int) (frame->ip - frame->closure->function->chunk.code));
+        disassembleInstruction(&frame->function->chunk, (int) (frame->ip - frame->function->chunk.code));
 #endif
         uint8_t instruction;
         switch (instruction = READ_BYTE()) {
@@ -387,13 +391,8 @@ InterpretResult interpret(const char *source) {
     ObjFunction *function = compile(source);
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
-    // GC 1: conceptually unnecessary push/pop
     push(OBJ_VAL(function));
-    ObjClosure *closure = newClosure(function);
-    // GC 2
-    pop();
-    push(OBJ_VAL(closure));
-    call(closure, 0);
+    call(NULL, function, 0);
 
     return run();
 }
