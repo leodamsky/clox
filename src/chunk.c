@@ -33,6 +33,15 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
 }
 
 int addConstant(Chunk *chunk, Value value) {
+    // GC: value (if in heap) might not be marked as alive
+    // if GC runs after the value was allocated
+    // and before it was added to the constant array
+    // (this operation might need to allocate additional memory before adding)
+    // thus becoming eligible for garbage collection.
+    // To fix it, value is pushed on the stack, which never triggers GC.
+    // So, by the time we write to the constant array, we will have at least one live reference.
+    push(value);
     writeValueArray(&chunk->constants, value);
+    pop();
     return chunk->constants.count - 1;
 }

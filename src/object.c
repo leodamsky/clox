@@ -13,9 +13,15 @@
 static Obj *allocateObject(size_t size, ObjType type) {
     Obj *object = (Obj *) reallocate(NULL, 0, size);
     object->type = type;
+    object->isMarked = false;
 
     object->next = vm.objects;
     vm.objects = object;
+
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %d\n", (void *) object, size, type);
+#endif
+
     return object;
 }
 
@@ -24,7 +30,17 @@ static ObjString *allocateString(char *chars, int length, uint32_t hash) {
     string->length = length;
     string->chars = chars;
     string->hash = hash;
+    // GC: string might be mistakenly garbage-collected
+    // string has no live references yet,
+    // and tableSet may need to allocate more memory
+    // before putting an entry,
+    // which may trigger GC.
+    // To fix it, value is pushed on the stack,
+    // which never triggers GC,
+    // so that we have at least one live reference.
+    push(OBJ_VAL(string));
     tableSet(&vm.strings, string, NIL_VAL);
+    pop();
     return string;
 }
 
@@ -126,6 +142,10 @@ void printObject(Value value) {
 }
 
 void freeObject(Obj *object) {
+#ifdef DEBUG_LOG_GC
+    printf("%p free type %d\n", (void *) object, object->type);
+#endif
+
     switch (object->type) {
         case OBJ_CLOSURE: {
             ObjClosure *closure = (ObjClosure *) object;

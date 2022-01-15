@@ -55,6 +55,12 @@ static void defineNative(const char *name, NativeFn function) {
 void initVM() {
     resetStack();
     vm.objects = NULL;
+    vm.bytesAllocated = 0;
+    vm.nextGC = 1024 * 1024;
+
+    vm.grayCount = 0;
+    vm.grayCapacity = 0;
+    vm.grayStack = NULL;
 
     initTable(&vm.globals);
     initTable(&vm.strings);
@@ -87,15 +93,25 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
-    ObjString *b = AS_STRING(pop());
-    ObjString *a = AS_STRING(pop());
+    // GC: operands might be garbage-collected before being concatenated.
+    // If we pop both operands from the stack,
+    // we may lose the last live references,
+    // which would make strings eligible for GC.
+    // So, we just peek the values, concatenate,
+    // and once we're done, pop them.
+    ObjString *b = AS_STRING(peek(0));
+    ObjString *a = AS_STRING(peek(1));
+
     int length = a->length + b->length;
+    // GC: this can trigger GC for operands ^.
     char *chars = ALLOCATE(char, length + 1);
     memcpy(chars, a->chars, a->length);
     memcpy(chars + a->length, b->chars, b->length);
     chars[length] = '\0';
 
     ObjString *result = takeString(chars, length);
+    pop();
+    pop();
     push(OBJ_VAL(result));
 }
 
@@ -248,6 +264,11 @@ static InterpretResult run() {
                 ObjString *name = READ_STRING();
                 // we defer pop to ensure GC treats not yet moved value as alive
                 tableSet(&vm.globals, name, peek(0));
+                // GC: note that we don’t pop the value until after we add it to the hash table.
+                // That ensures the VM can still find the value if a garbage collection is triggered
+                // right in the middle of adding it to the hash table.
+                // That’s a distinct possibility since the hash table
+                // requires dynamic allocation when it resizes.
                 pop();
                 break;
             }
