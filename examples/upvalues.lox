@@ -1,0 +1,15 @@
+// this script helps to understand how closures are implemented in a single-pass compiler
+fun outer() {
+  var y = "abc";
+  var a = "abc";
+  var b = "abc";
+  fun middle() {
+    var c = "abc";
+    var d = "abc";
+    fun inner() {
+        print a + c + b + d;
+    }
+    return inner;
+  }
+  return middle;
+}
