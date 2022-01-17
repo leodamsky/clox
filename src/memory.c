@@ -70,9 +70,16 @@ static void blackenObject(Obj *object) {
 #endif
 
     switch (object->type) {
+        case OBJ_BOUND_METHOD: {
+            ObjBoundMethod *bound = (ObjBoundMethod *) object;
+            markValue(bound->receiver);
+            markObject((Obj *) bound->method);
+            break;
+        }
         case OBJ_CLASS: {
             ObjClass *class = (ObjClass *) object;
             markObject((Obj *) class->name);
+            markTable(&class->methods);
             break;
         }
         case OBJ_CLOSURE: {
