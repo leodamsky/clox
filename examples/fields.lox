@@ -4,3 +4,11 @@ var pair = Pair();
 pair.first = 1;
 pair.second = 2;
 print pair.first + pair.second; // 3.
+
+if ("first" in pair) {
+    print "good";
+} else {
+    print "bad";
+}
+
+print "firstt" in pair;

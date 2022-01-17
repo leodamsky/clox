@@ -264,6 +264,9 @@ static void binary(__attribute__((unused)) bool canAssign) {
         case TOKEN_EQUAL_EQUAL:
             emitByte(OP_EQUAL);
             break;
+        case TOKEN_IN:
+            emitByte(OP_IN);
+            break;
         case TOKEN_GREATER:
             emitByte(OP_GREATER);
             break;
@@ -459,6 +462,7 @@ ParseRule rules[] = {
         [TOKEN_BANG_EQUAL]    = {NULL, binary, PREC_EQUALITY},
         [TOKEN_EQUAL]         = {NULL, NULL, PREC_NONE},
         [TOKEN_EQUAL_EQUAL]   = {NULL, binary, PREC_EQUALITY},
+        [TOKEN_IN]            = {NULL, binary, PREC_COMPARISON},
         [TOKEN_GREATER]       = {NULL, binary, PREC_COMPARISON},
         [TOKEN_GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
         [TOKEN_LESS]          = {NULL, binary, PREC_COMPARISON},

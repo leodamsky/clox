@@ -20,6 +20,7 @@ typedef enum {
     OP_GET_PROPERTY,
     OP_SET_PROPERTY,
     OP_EQUAL,
+    OP_IN,
     OP_GREATER,
     OP_LESS,
     OP_ADD,

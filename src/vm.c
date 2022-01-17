@@ -334,6 +334,23 @@ static InterpretResult run() {
                 push(BOOL_VAL(valuesEqual(a, b)));
                 break;
             }
+            case OP_IN: {
+                if (!IS_INSTANCE(peek(0))) {
+                    runtimeError("Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if (!IS_STRING(peek(1))) {
+                    runtimeError("Only property names can tested for inclusion.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance *instance = AS_INSTANCE(pop());
+                ObjString *name = AS_STRING(pop());
+                Value value;
+                bool present = tableGet(&instance->fields, name, &value);
+                push(BOOL_VAL(present));
+                break;
+            }
             case OP_GREATER:
                 BINARY_OP(BOOL_VAL, >);
                 break;
