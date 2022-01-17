@@ -70,6 +70,11 @@ static void blackenObject(Obj *object) {
 #endif
 
     switch (object->type) {
+        case OBJ_CLASS: {
+            ObjClass *class = (ObjClass *) object;
+            markObject((Obj *) class->name);
+            break;
+        }
         case OBJ_CLOSURE: {
             ObjClosure *closure = (ObjClosure *) object;
             markObject((Obj *) closure->function);
@@ -82,6 +87,12 @@ static void blackenObject(Obj *object) {
             ObjFunction *function = (ObjFunction *) object;
             markObject((Obj *) function->name);
             markArray(&function->chunk.constants);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance *instance = (ObjInstance *) object;
+            markObject((Obj *) instance->class);
+            markTable(&instance->fields);
             break;
         }
         case OBJ_UPVALUE:

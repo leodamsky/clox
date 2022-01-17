@@ -53,6 +53,12 @@ static uint32_t hashString(const char *key, int length) {
     return hash;
 }
 
+ObjClass *newClass(ObjString *name) {
+    ObjClass *class = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+    class->name = name;
+    return class;
+}
+
 ObjClosure *newClosure(ObjFunction *function) {
     ObjUpvalue **upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
     for (int i = 0; i < function->upvalueCount; i++) {
@@ -74,6 +80,13 @@ ObjFunction *newFunction() {
     function->name = NULL;
     initChunk(&function->chunk);
     return function;
+}
+
+ObjInstance *newInstance(ObjClass *class) {
+    ObjInstance *instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+    instance->class = class;
+    initTable(&instance->fields);
+    return instance;
 }
 
 ObjNative *newNative(NativeFn function) {
@@ -123,11 +136,17 @@ static void printFunction(ObjFunction *function) {
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLASS:
+            printf("%s", AS_CLASS(value)->name->chars);
+            break;
         case OBJ_CLOSURE:
             printFunction(AS_CLOSURE(value)->function);
             break;
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value));
+            break;
+        case OBJ_INSTANCE:
+            printf("%s instance", AS_INSTANCE(value)->class->name->chars);
             break;
         case OBJ_NATIVE:
             printf("<native fn>");
@@ -147,6 +166,9 @@ void freeObject(Obj *object) {
 #endif
 
     switch (object->type) {
+        case OBJ_CLASS:
+            FREE(ObjClass, object);
+            break;
         case OBJ_CLOSURE: {
             ObjClosure *closure = (ObjClosure *) object;
             FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
@@ -157,6 +179,12 @@ void freeObject(Obj *object) {
             ObjFunction *function = (ObjFunction *) object;
             freeChunk(&function->chunk);
             FREE(ObjFunction, object);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance *instance = (ObjInstance *) object;
+            freeTable(&instance->fields);
+            FREE(ObjInstance, object);
             break;
         }
         case OBJ_NATIVE:
