@@ -67,6 +67,8 @@ typedef struct Compiler {
     int localCount;
     Upvalue upvalues[UINT8_COUNT];
     int scopeDepth;
+
+    bool canDelete;
 } Compiler;
 
 Parser parser;
@@ -192,6 +194,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
     compiler->enclosing = current;
     compiler->function = NULL;
     compiler->type = type;
+    compiler->canDelete = false;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
     compiler->function = newFunction();
@@ -324,6 +327,9 @@ static void dot(bool canAssign) {
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
         emitBytes(OP_SET_PROPERTY, name);
+    } else if (canAssign && current->canDelete) {
+        current->canDelete = false;
+        emitBytes(OP_DELETE_PROPERTY, name);
     } else {
         emitBytes(OP_GET_PROPERTY, name);
     }
@@ -814,9 +820,20 @@ static void funDeclaration() {
     defineVariable(global);
 }
 
+static void delStatement() {
+    current->canDelete = true;
+    expression();
+    if (current->canDelete) {
+        error("Only fields of an instance can be deleted.");
+    }
+    consume(TOKEN_SEMICOLON, "Expect ';' after the delete statement.");
+}
+
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
+    } else if (match(TOKEN_DEL)) {
+        delStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
     } else if (match(TOKEN_IF)) {

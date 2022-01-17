@@ -351,6 +351,17 @@ static InterpretResult run() {
                 push(BOOL_VAL(present));
                 break;
             }
+            case OP_DELETE_PROPERTY: {
+                if (!IS_INSTANCE(peek(0))) {
+                    runtimeError("Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance *instance = AS_INSTANCE(peek(0));
+                tableDelete(&instance->fields, READ_STRING());
+                pop();
+                break;
+            }
             case OP_GREATER:
                 BINARY_OP(BOOL_VAL, >);
                 break;

@@ -75,6 +75,8 @@ int disassembleInstruction(Chunk *chunk, int offset) {
             return byteInstruction("OP_GET_PROPERTY", chunk, offset);
         case OP_SET_PROPERTY:
             return byteInstruction("OP_SET_PROPERTY", chunk, offset);
+        case OP_DELETE_PROPERTY:
+            return byteInstruction("OP_DELETE_PROPERTY", chunk, offset);
         case OP_EQUAL:
             return simpleInstruction("OP_EQUAL", offset);
         case OP_IN:

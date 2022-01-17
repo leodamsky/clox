@@ -19,6 +19,7 @@ typedef enum {
     OP_SET_UPVALUE,
     OP_GET_PROPERTY,
     OP_SET_PROPERTY,
+    OP_DELETE_PROPERTY,
     OP_EQUAL,
     OP_IN,
     OP_GREATER,

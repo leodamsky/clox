@@ -1,0 +1,11 @@
+class Bob {}
+
+var bob = Bob();
+bob.ded = "true";
+
+if (bob.ded) {
+    print "Bob ded!";
+    del bob.ded;
+}
+
+print "ded" in bob;
